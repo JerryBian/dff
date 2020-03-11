@@ -19,7 +19,7 @@ namespace DuplicateFileFinder.Core
             _fileManager = fileManager;
         }
 
-        public int MaxBytesScan { get; set; } = 64;
+        public int MaxBytesScan { get; set; } = 1024;
 
         public async Task ExecuteAsync(ArgOptions options)
         {
@@ -29,7 +29,7 @@ namespace DuplicateFileFinder.Core
             // Usually we don't have the new added case here, so it's safe.
             // However, if the input directory is root we may put duplicates directory to same too.
             // Anyway, we are good here.
-            foreach (var file1 in Directory.EnumerateFiles(options.SourceFolder, "*", SearchOption.AllDirectories))
+            foreach (var file1 in Directory.EnumerateFiles(options.InputFolder, "*", SearchOption.AllDirectories))
             {
                 if (filesMarkedAsDuplicate.Contains(file1))
                 {
@@ -37,7 +37,7 @@ namespace DuplicateFileFinder.Core
                 }
 
                 var sameFiles = new List<string> {file1}; // always feed file1 as one duplicate temporary
-                foreach (var file2 in Directory.EnumerateFiles(options.SourceFolder, "*",
+                foreach (var file2 in Directory.EnumerateFiles(options.InputFolder, "*",
                     SearchOption.AllDirectories))
                 {
                     if (filesMarkedAsDuplicate.Contains(file2))
@@ -54,7 +54,7 @@ namespace DuplicateFileFinder.Core
 
                 if (sameFiles.Count > 1) // We have duplicates
                 {
-                    _fileManager.ProcessDuplicateFiles(options.SourceFolder, sameFiles);
+                    _fileManager.ProcessDuplicateFiles(options.InputFolder, sameFiles);
                     filesMarkedAsDuplicate.Add(file1);
                 }
             }

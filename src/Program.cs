@@ -32,23 +32,31 @@ namespace DuplicateFileFinder
                 Parser.Default.ParseArguments<ArgOptions>(args)
                     .WithParsed(async arg =>
                     {
-                        var inputFolder = arg.SourceFolder;
-                        if (string.IsNullOrEmpty(inputFolder) || string.IsNullOrWhiteSpace(inputFolder))
+                        try
                         {
-                            inputFolder = Environment.CurrentDirectory;
-                        }
+                            var inputFolder = arg.InputFolder;
+                            if (string.IsNullOrEmpty(inputFolder) || string.IsNullOrWhiteSpace(inputFolder))
+                            {
+                                inputFolder = Environment.CurrentDirectory;
+                            }
 
-                        if (!Directory.Exists(inputFolder))
+                            if (!Directory.Exists(inputFolder))
+                            {
+                                await _logger.ErrorAsync($"Can't find valid directory at \"{inputFolder}\".", null);
+                                return;
+                            }
+
+                            arg.InputFolder = inputFolder;
+                            await _logger.InfoAsync("Start processing ...");
+                            var stopwatch = Stopwatch.StartNew();
+                            await analysisEngine.ExecuteAsync(arg);
+                            stopwatch.Stop();
+                            await _logger.InfoAsync($"Process completed. It took {stopwatch.ElapsedMilliseconds}ms.");
+                        }
+                        catch (Exception ex)
                         {
-                            await _logger.ErrorAsync($"Can't find valid director at \"{inputFolder}\".", null);
-                            return;
+                            await _logger.ErrorAsync("Unexpected interruption.", ex);
                         }
-
-                        await _logger.InfoAsync("Start processing ...");
-                        var stopwatch = Stopwatch.StartNew();
-                        await analysisEngine.ExecuteAsync(arg);
-                        stopwatch.Stop();
-                        await _logger.InfoAsync($"Process completed. It took {stopwatch.ElapsedMilliseconds}ms.");
                     })
                     .WithNotParsed(async e =>
                     {

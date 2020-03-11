@@ -5,6 +5,16 @@
     <TargetFramework>netcoreapp3.1</TargetFramework>
     <PackAsTool>true</PackAsTool>
     <ToolCommandName>dff</ToolCommandName>
+    <Authors>Jerry Bian</Authors>
+    <Company>laobian.me</Company>
+    <Product>DuplicateFileFinder</Product>
+    <Description>Duplicate File Finder - A tiny cross platform tool to filter out duplicate files within specified directory.</Description>
+    <Copyright>Copyright © Jerry Bian 2020</Copyright>
+    <Summary>Duplicate File Finder - A tiny cross platform tool to filter out duplicate files within specified directory.</Summary>
+    <Title>DuplicateFileFinder</Title>
+    <PackageProjectUrl>https://github.com/JerryBian/dff</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/JerryBian/dff.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
   </PropertyGroup>
 
   <ItemGroup>

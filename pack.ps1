@@ -8,7 +8,7 @@ param (
 )
 
 $OutputPath="./nupkg/$Version"
-dotnet pack src/DuplicateFileFinder.csproj --include-source --include-symbols --output $OutputPath -p:PackageVersion=$Version
+dotnet pack src/DuplicateFileFinder.csproj -c Release --include-source --include-symbols --output $OutputPath -p:PackageVersion=$Version
 
 $PkgPath="$OutputPath/DuplicateFileFinder.$Version.nupkg"
 if (!(Test-Path $PkgPath)){

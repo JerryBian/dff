@@ -15,7 +15,7 @@ namespace DuplicateFileFinder.Log
         public FileLogProvider()
         {
             _messages = new ConcurrentQueue<string>();
-            var logFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+            var logFolder = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
                 "duplicate-file-finder");
             Directory.CreateDirectory(logFolder);
             _logPath = Path.Combine(logFolder, DateTime.Now.ToString("yyyyMMdd.hhmmss.ffffff.lo\\g"));

@@ -13,7 +13,7 @@ namespace DuplicateFileFinder.Log
 
         public Task ErrorAsync(string message, Exception ex)
         {
-            Console.WriteLine($"Please report this issue. {message}");
+            Console.WriteLine($"{DateTime.Now}\t{message}{Environment.NewLine}{ex.Message}");
             return Task.CompletedTask;
         }
 

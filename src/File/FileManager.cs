@@ -46,30 +46,32 @@ namespace DuplicateFileFinder.File
         private string GetOriginalFile(List<string> sameFiles)
         {
             DateTime? minCreationTime = null;
-            DateTime? minLastWriteTime = null;
-            var fileInfoCache = new Dictionary<string, KeyValuePair<DateTime, DateTime>>();
+            var fileInfoCache = new Dictionary<string, DateTime>();
 
             foreach (var file in sameFiles)
             {
                 var creationTime = System.IO.File.GetCreationTime(file);
-                var lastWriteTime = System.IO.File.GetLastWriteTimeUtc(file);
 
-                fileInfoCache.Add(file, new KeyValuePair<DateTime, DateTime>(creationTime, lastWriteTime));
+                fileInfoCache.Add(file, creationTime);
                 if (!minCreationTime.HasValue || minCreationTime > creationTime)
                 {
                     minCreationTime = creationTime;
                 }
-
-                if (!minLastWriteTime.HasValue || minLastWriteTime > lastWriteTime)
-                {
-                    minLastWriteTime = lastWriteTime;
-                }
             }
 
-            var originalFiles =
-                fileInfoCache.Where(x => x.Value.Key > minCreationTime || x.Value.Value > minLastWriteTime)
-                    .Select(x => x.Key);
-            return originalFiles.First();
+            var originalFiles = fileInfoCache.Where(x => x.Value > minCreationTime).ToList();
+            if (originalFiles.Count > 1)
+            {
+                var minLastWriteTime = originalFiles.Min(x => System.IO.File.GetLastWriteTimeUtc(x.Key));
+                originalFiles = originalFiles.Where(x => System.IO.File.GetLastWriteTimeUtc(x.Key) == minLastWriteTime)
+                    .ToList();
+            }
+            else if(!originalFiles.Any()) // The creation time is same.
+            {
+                originalFiles = fileInfoCache.ToList();
+            }
+
+            return originalFiles.First().Key;
         }
     }
 }
