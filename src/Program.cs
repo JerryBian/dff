@@ -1,84 +1,58 @@
-﻿using System;
-using System.Diagnostics;
-using System.IO;
-using System.Threading.Tasks;
-using CommandLine;
-using DuplicateFileFinder.Core;
-using DuplicateFileFinder.File;
-using DuplicateFileFinder.Log;
-using DuplicateFileFinder.Model;
+﻿using CommandLine;
 
-namespace DuplicateFileFinder
+namespace DuplicateFileFinder;
+
+internal class Program
 {
-    internal class Program
+    private static readonly CancellationTokenSource Cts = new();
+
+    private static async Task Main(string[] args)
     {
-        private static Logger _logger;
+        AppDomain.CurrentDomain.ProcessExit += OnExit;
+        Console.CancelKeyPress += OnExit;
+        TaskScheduler.UnobservedTaskException += OnExit;
 
-        private static async Task Main(string[] args)
+        await using var outputHandler = new OutputHandler(Cts.Token);
+        await Parser.Default.ParseArguments<InputArgument>(args).WithParsedAsync(async arg =>
         {
-            _logger = new Logger();
-            _logger.RegisterProvider(new ConsoleLogProvider());
-            _logger.RegisterProvider(new FileLogProvider());
-
-            AppDomain.CurrentDomain.ProcessExit += OnExit;
-            Console.CancelKeyPress += OnExit;
-            TaskScheduler.UnobservedTaskException += OnExit;
-
-            var fileManager = new FileManager(_logger);
-            var analysisEngine = new AnalysisEngine(_logger, fileManager);
-
             try
             {
-                Parser.Default.ParseArguments<ArgOptions>(args)
-                    .WithParsed(async arg =>
-                    {
-                        try
-                        {
-                            var inputFolder = arg.InputFolder;
-                            if (string.IsNullOrEmpty(inputFolder) || string.IsNullOrWhiteSpace(inputFolder))
-                            {
-                                inputFolder = Environment.CurrentDirectory;
-                            }
-
-                            if (!Directory.Exists(inputFolder))
-                            {
-                                await _logger.ErrorAsync($"Can't find valid directory at \"{inputFolder}\".", null);
-                                return;
-                            }
-
-                            arg.InputFolder = inputFolder;
-                            await _logger.InfoAsync("Start processing ...");
-                            var stopwatch = Stopwatch.StartNew();
-                            await analysisEngine.ExecuteAsync(arg);
-                            stopwatch.Stop();
-                            await _logger.InfoAsync($"Process completed. It took {stopwatch.ElapsedMilliseconds}ms.");
-                        }
-                        catch (Exception ex)
-                        {
-                            await _logger.ErrorAsync("Unexpected interruption.", ex);
-                        }
-                    })
-                    .WithNotParsed(async e =>
-                    {
-                        foreach (var error in e)
-                        {
-                            await _logger.ErrorAsync($"Argument error: {error}", null);
-                        }
-                    });
+                var appOptions = GetAppOptions(arg);
+                var mainService = new MainService(appOptions, outputHandler);
+                await mainService.ExecuteAsync(Cts.Token);
             }
             catch (Exception ex)
             {
-                await _logger.ErrorAsync("Unexpected exception.", ex);
+                outputHandler.Ingest(new OutputItem(ex.Message, true, true, MessageType.Error)
+                    {Exception = ex.ToString()});
             }
-            finally
+        });
+        Cts.Cancel();
+    }
+
+    private static void OnExit(object sender, EventArgs args)
+    {
+        Cts.Cancel();
+    }
+
+    private static AppOptions GetAppOptions(InputArgument o)
+    {
+        var options = new AppOptions {IncludeSubDirs = o.Recursive};
+        foreach (var dir in o.Dirs)
+        {
+            if (!Directory.Exists(dir))
             {
-                await _logger.FlushAsync();
+                throw new Exception($"Target folder not exists: {dir}");
             }
+
+            options.Dirs.Add(dir);
         }
 
-        private static async void OnExit(object sender, EventArgs args)
+        if (!options.Dirs.Any())
         {
-            await _logger.FlushAsync();
+            options.Dirs.Add(Environment.CurrentDirectory);
         }
+
+        return options;
     }
 }
