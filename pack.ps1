@@ -20,6 +20,7 @@ else{
         Write-Error "Invalid ApiKey. Please check environment variable NugetApiKey."
     }
     else{
+        Write-Output $ApiKey
         dotnet nuget push $PkgPath -k $ApiKey -s https://api.nuget.org/v3/index.json
     }
 }
