@@ -18,3 +18,4 @@ UpgradeLog*.XML
 UpgradeLog*.htm
 .DS_Store
 Properties/
+nupkg

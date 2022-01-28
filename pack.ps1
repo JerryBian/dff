@@ -10,7 +10,7 @@ param (
 $OutputPath="./nupkg/$Version"
 dotnet pack src/DuplicateFileFinder.csproj -c Release --include-source --include-symbols --output $OutputPath -p:PackageVersion=$Version
 
-$PkgPath="$OutputPath/DuplicateFileFinder.$Version.nupkg"
+$PkgPath="$OutputPath/dff.$Version.nupkg"
 if (!(Test-Path $PkgPath)){
     Write-Error "No package found under $PkgPath"
 }

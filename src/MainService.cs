@@ -19,7 +19,7 @@ public class MainService
     public async Task ExecuteAsync(CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
-        _outputHandler.Ingest(new OutputItem("Checking following folders:"));
+        _outputHandler.Ingest(new OutputItem("Scanning following folders:"));
         foreach (var dir in _options.Dirs)
         {
             _outputHandler.Ingest(new OutputItem("\u2192 ", false, messageType: MessageType.DarkSuccess));

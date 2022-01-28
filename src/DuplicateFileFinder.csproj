@@ -7,11 +7,28 @@
     <Nullable>disable</Nullable>
     <AssemblyName>dff</AssemblyName>
     <RootNamespace>DuplicateFileFinder</RootNamespace>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+    <Authors>cnBian</Authors>
+    <Title>dff</Title>
+    <IncludeSymbols>true</IncludeSymbols>
+    <Description>Duplicate File Finder - A tiny cross platform tool to filter out duplicate files within specified directory.</Description>
+    <Summary>Duplicate File Finder - A tiny cross platform tool to filter out duplicate files within specified directory.</Summary>
+    <Copyright>Copyright © Jerry Bian 2022</Copyright>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <PackageProjectUrl>https://github.com/JerryBian/dff</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/JerryBian/dff.git</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackAsTool>true</PackAsTool>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="ByteSize" Version="2.1.1" />
     <PackageReference Include="CommandLineParser" Version="2.8.0" />
   </ItemGroup>
+
+  <ItemGroup>
+    <None Include="README.md" Pack="true" PackagePath=""/>
+    <None Include="LICENSE" Pack="true" PackagePath="" Visible="false"/>
+</ItemGroup>
 
 </Project>
