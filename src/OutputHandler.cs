@@ -22,7 +22,7 @@ public class OutputHandler : IOutputHandler, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
-        await _task.WaitAsync(CancellationToken.None);
+        await _task.WaitAsync(_cancellationToken).UntilCancelled();
         while (_items.TryDequeue(out var item))
         {
             await ProcessItemAsync(item);

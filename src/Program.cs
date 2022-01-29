@@ -1,4 +1,5 @@
-﻿using CommandLine;
+﻿using System.Text;
+using CommandLine;
 
 namespace DuplicateFileFinder;
 
@@ -11,6 +12,8 @@ internal class Program
         AppDomain.CurrentDomain.ProcessExit += OnExit;
         Console.CancelKeyPress += OnExit;
         TaskScheduler.UnobservedTaskException += OnExit;
+        Console.OutputEncoding = Encoding.UTF8;
+        Console.InputEncoding = Encoding.UTF8;
 
         await using var outputHandler = new OutputHandler(Cts.Token);
         await Parser.Default.ParseArguments<InputArgument>(args).WithParsedAsync(async arg =>
@@ -27,6 +30,7 @@ internal class Program
                     {Exception = ex.ToString()});
             }
         });
+
         Cts.Cancel();
     }
 
