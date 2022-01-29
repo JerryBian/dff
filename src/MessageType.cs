@@ -14,5 +14,9 @@ public enum MessageType
 
     Error,
 
-    DarkError
+    DarkError,
+
+    Verbose,
+
+    DarkVerbose
 }

@@ -5,7 +5,7 @@ namespace DuplicateFileFinder;
 
 public class MainService
 {
-    private const int MaxBytesScan = 1024;
+    private const int MaxBytesScan = 1024 * 2;
     private readonly AppOptions _options;
     private readonly IOutputHandler _outputHandler;
 
@@ -14,7 +14,6 @@ public class MainService
         _options = options;
         _outputHandler = outputHandler;
     }
-
 
     public async Task ExecuteAsync(CancellationToken cancellationToken)
     {
@@ -30,6 +29,8 @@ public class MainService
         var filesMarkedAsDuplicate = new HashSet<string>();
         foreach (var dir in _options.Dirs)
         {
+            _outputHandler.Ingest(new OutputItem("Scanning folder: ", false, messageType: MessageType.Verbose, discard: !_options.EnableVerboseLog));
+            _outputHandler.Ingest(new OutputItem($"{dir}", true, messageType: MessageType.Success, discard: !_options.EnableVerboseLog));
             // EnumerateFiles API will skip deleted one during iteration, but not for new added file.
             // Usually we don't have the new added case here, so it's safe.
             // However, if the input directory is root we may put duplicates directory to same too.
@@ -37,8 +38,12 @@ public class MainService
             foreach (var file1 in Directory.EnumerateFiles(dir, "*",
                          _options.IncludeSubDirs ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
             {
+                _outputHandler.Ingest(new OutputItem("", discard: !_options.EnableVerboseLog));
+                _outputHandler.Ingest(new OutputItem("Checking file: ", false, messageType: MessageType.Verbose, discard: !_options.EnableVerboseLog));
+                _outputHandler.Ingest(new OutputItem(file1, true, messageType: MessageType.Success, discard: !_options.EnableVerboseLog));
                 if (filesMarkedAsDuplicate.Contains(file1))
                 {
+                    _outputHandler.Ingest(new OutputItem("Skip.", true, messageType: MessageType.DarkWarning, discard: !_options.EnableVerboseLog));
                     continue; // This file already marked as duplicate in previous analysis
                 }
 
@@ -48,8 +53,12 @@ public class MainService
                     foreach (var file2 in Directory.EnumerateFiles(dir2, "*",
                                  _options.IncludeSubDirs ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
                     {
+                        _outputHandler.Ingest(new OutputItem("\u2192 ", false, messageType: MessageType.Success, discard: !_options.EnableVerboseLog));
+                        _outputHandler.Ingest(new OutputItem(file2, true, messageType: MessageType.Verbose, discard: !_options.EnableVerboseLog));
                         if (filesMarkedAsDuplicate.Contains(file2))
                         {
+                            _outputHandler.Ingest(new OutputItem("Skip.", true, messageType: MessageType.Verbose, discard: !_options.EnableVerboseLog));
+                            _outputHandler.Ingest(new OutputItem("", discard: !_options.EnableVerboseLog));
                             continue; // This file already marked as duplicate in previous analysis
                         }
 
@@ -57,31 +66,39 @@ public class MainService
                         {
                             sameFiles.Add(file2);
                             filesMarkedAsDuplicate.Add(file2);
+                            _outputHandler.Ingest(new OutputItem("Duplicate.", true, messageType: MessageType.DarkSuccess, discard: !_options.EnableVerboseLog));
+                        }
+                        else
+                        {
+                            _outputHandler.Ingest(new OutputItem("Non Duplicate.", true, messageType: MessageType.Verbose, discard: !_options.EnableVerboseLog));
                         }
                     }
                 }
 
                 if (sameFiles.Count > 1) // We have duplicates
                 {
-                    _outputHandler.Ingest(new OutputItem("\u2713 ", false, messageType: MessageType.DarkSuccess));
+                    var delay = _options.EnableVerboseLog;
+                    _outputHandler.Ingest(new OutputItem("\u2713 ", false, messageType: MessageType.DarkSuccess, delayToEnd: delay));
                     _outputHandler.Ingest(
-                        new OutputItem("Duplicate Entry: ", false, messageType: MessageType.Warning));
+                        new OutputItem("Duplicate Entry: ", false, messageType: MessageType.Warning, delayToEnd: delay));
                     _outputHandler.Ingest(new OutputItem(ByteSize.FromBytes(new FileInfo(file1).Length).ToString(),
-                        true, messageType: MessageType.Success));
+                        true, messageType: MessageType.Success, delayToEnd: delay));
                     foreach (var file in sameFiles)
                     {
-                        _outputHandler.Ingest(new OutputItem("\u2192 ", false, messageType: MessageType.DarkSuccess));
-                        _outputHandler.Ingest(new OutputItem(file));
+                        _outputHandler.Ingest(new OutputItem("\u2192 ", false, messageType: MessageType.DarkSuccess, delayToEnd: delay));
+                        _outputHandler.Ingest(new OutputItem(file, delayToEnd: delay));
                     }
 
-                    _outputHandler.Ingest(new OutputItem(""));
+                    _outputHandler.Ingest(new OutputItem("", delayToEnd: delay));
                     filesMarkedAsDuplicate.Add(file1);
                 }
             }
         }
 
-
         sw.Stop();
+        _outputHandler.Ingest(new OutputItem("", discard: !_options.EnableVerboseLog));
+        _outputHandler.Ingest(new OutputItem("------ Final Results", discard: !_options.EnableVerboseLog));
+        await _outputHandler.FlushAsync();
         _outputHandler.Ingest(new OutputItem("Done. ", false, messageType: MessageType.DarkSuccess));
         _outputHandler.Ingest(new OutputItem($"Elapsed {sw.Elapsed:hh\\:mm\\:ss}. ", false));
         await Task.CompletedTask;

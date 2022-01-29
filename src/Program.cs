@@ -37,7 +37,7 @@ internal class Program
 
     private static AppOptions GetAppOptions(InputArgument o)
     {
-        var options = new AppOptions {IncludeSubDirs = o.Recursive};
+        var options = new AppOptions {IncludeSubDirs = o.Recursive, EnableVerboseLog = o.Verbose};
         foreach (var dir in o.Dirs)
         {
             if (!Directory.Exists(dir))

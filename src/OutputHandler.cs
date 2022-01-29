@@ -7,15 +7,17 @@ public class OutputHandler : IOutputHandler, IAsyncDisposable
 {
     private readonly CancellationToken _cancellationToken;
     private readonly ConcurrentQueue<OutputItem> _items;
+    private readonly ConcurrentQueue<OutputItem> _delayedItems;
     private readonly string _logFilePath;
     private readonly Task _task;
 
     public OutputHandler(CancellationToken cancellationToken)
     {
         _cancellationToken = cancellationToken;
-        _task = Task.Run(async () => await ProcessAsync());
-        _logFilePath = Path.GetTempFileName();
         _items = new ConcurrentQueue<OutputItem>();
+        _delayedItems = new ConcurrentQueue<OutputItem>();
+        _logFilePath = Path.GetTempFileName();
+        _task = Task.Run(async () => await ProcessAsync());
     }
 
     public async ValueTask DisposeAsync()
@@ -31,7 +33,32 @@ public class OutputHandler : IOutputHandler, IAsyncDisposable
 
     public void Ingest(OutputItem item)
     {
-        _items.Enqueue(item);
+        if (item.Discard)
+        {
+            return;
+        }
+
+        if (item.DelayToEnd)
+        {
+            _delayedItems.Enqueue(item);
+        }
+        else
+        {
+            _items.Enqueue(item);
+        }
+    }
+
+    public async Task FlushAsync()
+    {
+        while (!_items.IsEmpty)
+        {
+            await Task.Delay(TimeSpan.FromMilliseconds(10), CancellationToken.None);
+        }
+
+        while (_delayedItems.TryDequeue(out var item))
+        {
+            await ProcessItemAsync(item);
+        }
     }
 
     private async Task ProcessAsync()
@@ -95,6 +122,8 @@ public class OutputHandler : IOutputHandler, IAsyncDisposable
             MessageType.Error => ConsoleColor.Red,
             MessageType.Success => ConsoleColor.Green,
             MessageType.Warning => ConsoleColor.Yellow,
+            MessageType.Verbose => ConsoleColor.Gray,
+            MessageType.DarkVerbose => ConsoleColor.DarkGray,
             _ => Console.ForegroundColor
         };
 
