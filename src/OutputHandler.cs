@@ -6,8 +6,8 @@ namespace DuplicateFileFinder;
 public class OutputHandler : IOutputHandler, IAsyncDisposable
 {
     private readonly CancellationToken _cancellationToken;
-    private readonly ConcurrentQueue<OutputItem> _items;
     private readonly ConcurrentQueue<OutputItem> _delayedItems;
+    private readonly ConcurrentQueue<OutputItem> _items;
     private readonly string _logFilePath;
     private readonly Task _task;
 
@@ -28,7 +28,7 @@ public class OutputHandler : IOutputHandler, IAsyncDisposable
             await ProcessItemAsync(item);
         }
 
-        await Console.Out.WriteAsync($"Logs are save to {_logFilePath}");
+        await Console.Out.WriteLineAsync($"Logs are saved to {_logFilePath}");
     }
 
     public void Ingest(OutputItem item)

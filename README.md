@@ -2,7 +2,7 @@ A tiny cross platform tool to filter out duplicate files within specified direct
 
 ### Install
 
-You can go directly download from the Release page according to your target platform.
+You can go directly download from the [Release](https://github.com/JerryBian/dff/releases) page according to your target platform.
 
 Or you can use dotnet [global tools](https://www.nuget.org/packages/dff/) if you have already [.NET 6](https://dotnet.microsoft.com/download) installed.
 
@@ -44,4 +44,3 @@ After the command completed, you can also go to the log file besides the termina
 ### License
 
 [MIT](./LICENSE).
-

@@ -6,6 +6,7 @@ namespace DuplicateFileFinder;
 public class MainService
 {
     private const int MaxBytesScan = 1024 * 2;
+    private readonly IDictionary<long, List<string>> _groupedFiles;
     private readonly AppOptions _options;
     private readonly IOutputHandler _outputHandler;
 
@@ -13,20 +14,56 @@ public class MainService
     {
         _options = options;
         _outputHandler = outputHandler;
+        _groupedFiles = new Dictionary<long, List<string>>();
+    }
+
+    private void Scan(string folder, CancellationToken cancellationToken)
+    {
+        var items = new Dictionary<string, long>();
+        foreach (var file in Directory.EnumerateFiles(folder, "*",
+                     _options.IncludeSubDirs ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
+        {
+            if (cancellationToken.IsCancellationRequested)
+            {
+                break;
+            }
+
+            items.Add(file, new FileInfo(file).Length);
+        }
+
+        var groupedFiles = items.GroupBy(x => x.Value).Where(x => x.Count() > 1)
+            .ToDictionary(x => x.Key, x => x.Select(y => y.Key).ToList());
+        foreach (var groupedFile in groupedFiles)
+        {
+            if (_groupedFiles.ContainsKey(groupedFile.Key))
+            {
+                foreach (var item in groupedFile.Value)
+                {
+                    if (_groupedFiles[groupedFile.Key].FirstOrDefault(x => x == item) == null)
+                    {
+                        _groupedFiles[groupedFile.Key].Add(item);
+                    }
+                }
+            }
+            else
+            {
+                _groupedFiles.Add(groupedFile);
+            }
+        }
     }
 
     public async Task ExecuteAsync(CancellationToken cancellationToken)
     {
         var sw = Stopwatch.StartNew();
-        _outputHandler.Ingest(new OutputItem("Scanning following folders:"));
+        _outputHandler.Ingest(new OutputItem("Scanning folders:"));
         foreach (var dir in _options.Dirs)
         {
             _outputHandler.Ingest(new OutputItem("\u2192 ", false, messageType: MessageType.DarkSuccess));
             _outputHandler.Ingest(new OutputItem($"{dir}", true, messageType: MessageType.Success));
         }
 
-        _outputHandler.Ingest(new OutputItem(""));
-        var skippedFiles = new HashSet<string>();
+        _outputHandler.Ingest(new OutputItem());
+        _groupedFiles.Clear();
         foreach (var dir in _options.Dirs)
         {
             if (cancellationToken.IsCancellationRequested)
@@ -34,94 +71,100 @@ public class MainService
                 break;
             }
 
-            _outputHandler.Ingest(new OutputItem("Scanning folder: ", false, messageType: MessageType.Verbose, discard: !_options.EnableVerboseLog));
-            _outputHandler.Ingest(new OutputItem($"{dir}", true, messageType: MessageType.Success, discard: !_options.EnableVerboseLog));
-            // EnumerateFiles API will skip deleted one during iteration, but not for new added file.
-            // Usually we don't have the new added case here, so it's safe.
-            // However, if the input directory is root we may put duplicates directory to same too.
-            // Anyway, we are good here.
-            foreach (var file1 in Directory.EnumerateFiles(dir, "*",
-                         _options.IncludeSubDirs ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
+            Scan(dir, cancellationToken);
+        }
+
+        if (_groupedFiles.Any())
+        {
+            _outputHandler.Ingest(new OutputItem(
+                $"Found {_groupedFiles.Count} groups which have exactly same file size.", true,
+                messageType: MessageType.Verbose,
+                discard: !_options.EnableVerboseLog));
+            _outputHandler.Ingest(new OutputItem());
+
+            for (var i = 1; i <= _groupedFiles.Keys.Count; i++)
             {
-                if (cancellationToken.IsCancellationRequested)
+                var fileSize = _groupedFiles.Keys.ElementAt(i);
+                var groupedFiles = _groupedFiles[fileSize];
+                var skippedFiles = new HashSet<string>();
+                foreach (var file1 in groupedFiles)
                 {
-                    break;
-                }
-
-                _outputHandler.Ingest(new OutputItem("", discard: !_options.EnableVerboseLog));
-                _outputHandler.Ingest(new OutputItem("Checking file: ", false, messageType: MessageType.Verbose, discard: !_options.EnableVerboseLog));
-                _outputHandler.Ingest(new OutputItem(file1, true, messageType: MessageType.Success, discard: !_options.EnableVerboseLog));
-                if (skippedFiles.Contains(file1))
-                {
-                    _outputHandler.Ingest(new OutputItem("Skip.", true, messageType: MessageType.DarkWarning, discard: !_options.EnableVerboseLog));
-                    continue; // This file already marked as duplicate in previous analysis
-                }
-
-                skippedFiles.Add(file1); // It has been iterated, so no necessary do again
-                var duplicateFiles = new List<string> {file1}; // always feed file1 as one duplicate temporary
-                foreach (var dir2 in _options.Dirs)
-                {
-                    if (cancellationToken.IsCancellationRequested)
+                    if (skippedFiles.Contains(file1))
                     {
-                        break;
+                        continue;
                     }
 
-                    foreach (var file2 in Directory.EnumerateFiles(dir2, "*",
-                                 _options.IncludeSubDirs ? SearchOption.AllDirectories : SearchOption.TopDirectoryOnly))
+                    var duplicateFiles = new List<string> {file1};
+                    skippedFiles.Add(file1);
+                    _outputHandler.Ingest(new OutputItem());
+                    _outputHandler.Ingest(new OutputItem($"[{i}/{_groupedFiles.Keys.Count}] ", false,
+                        messageType: MessageType.DarkVerbose,
+                        discard: !_options.EnableVerboseLog));
+                    _outputHandler.Ingest(new OutputItem(
+                        $"Comparing file {file1}({ByteSize.FromBytes(fileSize).ToString()}) with:", true,
+                        messageType: MessageType.Default,
+                        discard: !_options.EnableVerboseLog));
+                    foreach (var file2 in groupedFiles)
                     {
-                        if (cancellationToken.IsCancellationRequested)
-                        {
-                            break;
-                        }
-
-                        _outputHandler.Ingest(new OutputItem("\u2192 ", false, messageType: MessageType.Success, discard: !_options.EnableVerboseLog));
-                        _outputHandler.Ingest(new OutputItem(file2, true, messageType: MessageType.Verbose, discard: !_options.EnableVerboseLog));
                         if (skippedFiles.Contains(file2))
                         {
-                            _outputHandler.Ingest(new OutputItem("Skip.", true, messageType: MessageType.Verbose, discard: !_options.EnableVerboseLog));
-                            _outputHandler.Ingest(new OutputItem("", discard: !_options.EnableVerboseLog));
-                            continue; // This file already marked as duplicate in previous analysis
+                            continue;
                         }
 
+                        _outputHandler.Ingest(new OutputItem("\u2192 ", false, messageType: MessageType.DarkSuccess,
+                            discard: !_options.EnableVerboseLog));
+                        _outputHandler.Ingest(new OutputItem(file2 + " ", false, messageType: MessageType.Verbose,
+                            discard: !_options.EnableVerboseLog));
                         if (await AreFilesEqualAsync(file1, file2))
                         {
                             duplicateFiles.Add(file2);
                             skippedFiles.Add(file2);
-                            _outputHandler.Ingest(new OutputItem("Duplicate.", true, messageType: MessageType.DarkSuccess, discard: !_options.EnableVerboseLog));
+                            _outputHandler.Ingest(new OutputItem("Duplicate", true,
+                                messageType: MessageType.DarkError, discard: !_options.EnableVerboseLog));
                         }
                         else
                         {
-                            _outputHandler.Ingest(new OutputItem("Non Duplicate.", true, messageType: MessageType.Verbose, discard: !_options.EnableVerboseLog));
+                            _outputHandler.Ingest(new OutputItem("Non Duplicate", true,
+                                messageType: MessageType.Success, discard: !_options.EnableVerboseLog));
                         }
                     }
-                }
 
-                if (duplicateFiles.Count > 1) // We have duplicates
-                {
-                    var delay = _options.EnableVerboseLog;
-                    _outputHandler.Ingest(new OutputItem("\u2713 ", false, messageType: MessageType.DarkSuccess, delayToEnd: delay));
-                    _outputHandler.Ingest(
-                        new OutputItem("Duplicate Entry: ", false, messageType: MessageType.Warning, delayToEnd: delay));
-                    _outputHandler.Ingest(new OutputItem(ByteSize.FromBytes(new FileInfo(file1).Length).ToString(),
-                        true, messageType: MessageType.Success, delayToEnd: delay));
-                    foreach (var file in duplicateFiles)
+                    if (duplicateFiles.Count > 1) // We have duplicates
                     {
-                        _outputHandler.Ingest(new OutputItem("\u2192 ", false, messageType: MessageType.DarkSuccess, delayToEnd: delay));
-                        _outputHandler.Ingest(new OutputItem(file, delayToEnd: delay));
-                    }
+                        var delay = _options.EnableVerboseLog;
+                        _outputHandler.Ingest(new OutputItem("\u2713 ", false, messageType: MessageType.DarkSuccess,
+                            delayToEnd: delay));
+                        _outputHandler.Ingest(
+                            new OutputItem("Duplicate Files: ", false, messageType: MessageType.Warning,
+                                delayToEnd: delay));
+                        _outputHandler.Ingest(new OutputItem(ByteSize.FromBytes(fileSize).ToString(),
+                            true, messageType: MessageType.Success, delayToEnd: delay));
+                        foreach (var file in duplicateFiles)
+                        {
+                            _outputHandler.Ingest(new OutputItem("\u2192 ", false, messageType: MessageType.DarkSuccess,
+                                delayToEnd: delay));
+                            _outputHandler.Ingest(new OutputItem(file, delayToEnd: delay));
+                        }
 
-                    _outputHandler.Ingest(new OutputItem("", delayToEnd: delay));
-                    skippedFiles.Add(file1);
+                        _outputHandler.Ingest(new OutputItem("", delayToEnd: delay));
+                    }
                 }
             }
+        }
+        else
+        {
+            _outputHandler.Ingest(
+                new OutputItem("No duplicate items found.", false, messageType: MessageType.DarkSuccess));
         }
 
         sw.Stop();
 
         if (cancellationToken.IsCancellationRequested)
         {
-            _outputHandler.Ingest(new OutputItem("User requested to cancel the operations ....", true, messageType: MessageType.DarkWarning, delayToEnd: true));
+            _outputHandler.Ingest(new OutputItem("User requested to cancel the operations ....", true,
+                messageType: MessageType.DarkWarning, delayToEnd: true));
         }
+
         _outputHandler.Ingest(new OutputItem("", discard: !_options.EnableVerboseLog));
         _outputHandler.Ingest(new OutputItem("------ Final Results", discard: !_options.EnableVerboseLog));
         await _outputHandler.FlushAsync();

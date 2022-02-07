@@ -2,7 +2,7 @@
 
 public class OutputItem
 {
-    public OutputItem(string message, bool appendNewLine = true, bool isError = false,
+    public OutputItem(string message = "", bool appendNewLine = true, bool isError = false,
         MessageType messageType = MessageType.Default, bool delayToEnd = false, bool discard = false)
     {
         Message = message;
