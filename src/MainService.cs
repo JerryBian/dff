@@ -80,11 +80,11 @@ public class MainService
                 $"Found {_groupedFiles.Count} groups which have exactly same file size.", true,
                 messageType: MessageType.Verbose,
                 discard: !_options.EnableVerboseLog));
-            _outputHandler.Ingest(new OutputItem());
+            _outputHandler.Ingest(new OutputItem(discard:!_options.EnableVerboseLog));
 
             for (var i = 1; i <= _groupedFiles.Keys.Count; i++)
             {
-                var fileSize = _groupedFiles.Keys.ElementAt(i);
+                var fileSize = _groupedFiles.Keys.ElementAt(i-1);
                 var groupedFiles = _groupedFiles[fileSize];
                 var skippedFiles = new HashSet<string>();
                 foreach (var file1 in groupedFiles)
@@ -96,12 +96,12 @@ public class MainService
 
                     var duplicateFiles = new List<string> {file1};
                     skippedFiles.Add(file1);
-                    _outputHandler.Ingest(new OutputItem());
+                    _outputHandler.Ingest(new OutputItem(discard: !_options.EnableVerboseLog));
                     _outputHandler.Ingest(new OutputItem($"[{i}/{_groupedFiles.Keys.Count}] ", false,
                         messageType: MessageType.DarkVerbose,
                         discard: !_options.EnableVerboseLog));
                     _outputHandler.Ingest(new OutputItem(
-                        $"Comparing file {file1}({ByteSize.FromBytes(fileSize).ToString()}) with:", true,
+                        $"Comparing file {file1}({ByteSize.FromBytes(fileSize)}) with:", true,
                         messageType: MessageType.Default,
                         discard: !_options.EnableVerboseLog));
                     foreach (var file2 in groupedFiles)
