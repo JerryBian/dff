@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Text;
 using ByteSizeLib;
 
 namespace DuplicateFileFinder;
@@ -6,6 +7,7 @@ namespace DuplicateFileFinder;
 public class MainService
 {
     private const int MaxBytesScan = 1024 * 2;
+    private readonly List<List<string>> _duplicateItems;
     private readonly IDictionary<long, List<string>> _groupedFiles;
     private readonly AppOptions _options;
     private readonly IOutputHandler _outputHandler;
@@ -15,6 +17,7 @@ public class MainService
         _options = options;
         _outputHandler = outputHandler;
         _groupedFiles = new Dictionary<long, List<string>>();
+        _duplicateItems = new List<List<string>>();
     }
 
     private void Scan(string folder, CancellationToken cancellationToken)
@@ -80,11 +83,11 @@ public class MainService
                 $"Found {_groupedFiles.Count} groups which have exactly same file size.", true,
                 messageType: MessageType.Verbose,
                 discard: !_options.EnableVerboseLog));
-            _outputHandler.Ingest(new OutputItem(discard:!_options.EnableVerboseLog));
+            _outputHandler.Ingest(new OutputItem(discard: !_options.EnableVerboseLog));
 
             for (var i = 1; i <= _groupedFiles.Keys.Count; i++)
             {
-                var fileSize = _groupedFiles.Keys.ElementAt(i-1);
+                var fileSize = _groupedFiles.Keys.ElementAt(i - 1);
                 var groupedFiles = _groupedFiles[fileSize];
                 var skippedFiles = new HashSet<string>();
                 foreach (var file1 in groupedFiles)
@@ -131,22 +134,7 @@ public class MainService
 
                     if (duplicateFiles.Count > 1) // We have duplicates
                     {
-                        var delay = _options.EnableVerboseLog;
-                        _outputHandler.Ingest(new OutputItem("\u2713 ", false, messageType: MessageType.DarkSuccess,
-                            delayToEnd: delay));
-                        _outputHandler.Ingest(
-                            new OutputItem("Duplicate Files: ", false, messageType: MessageType.Warning,
-                                delayToEnd: delay));
-                        _outputHandler.Ingest(new OutputItem(ByteSize.FromBytes(fileSize).ToString(),
-                            true, messageType: MessageType.Success, delayToEnd: delay));
-                        foreach (var file in duplicateFiles)
-                        {
-                            _outputHandler.Ingest(new OutputItem("\u2192 ", false, messageType: MessageType.DarkSuccess,
-                                delayToEnd: delay));
-                            _outputHandler.Ingest(new OutputItem(file, delayToEnd: delay));
-                        }
-
-                        _outputHandler.Ingest(new OutputItem("", delayToEnd: delay));
+                        _duplicateItems.Add(duplicateFiles);
                     }
                 }
             }
@@ -154,7 +142,8 @@ public class MainService
         else
         {
             _outputHandler.Ingest(
-                new OutputItem("No duplicate items found.", false, messageType: MessageType.DarkSuccess));
+                new OutputItem("No duplicate items found.", true, messageType: MessageType.DarkSuccess));
+            _outputHandler.Ingest(new OutputItem());
         }
 
         sw.Stop();
@@ -162,15 +151,54 @@ public class MainService
         if (cancellationToken.IsCancellationRequested)
         {
             _outputHandler.Ingest(new OutputItem("User requested to cancel the operations ....", true,
-                messageType: MessageType.DarkWarning, delayToEnd: true));
+                messageType: MessageType.DarkWarning));
         }
 
         _outputHandler.Ingest(new OutputItem("", discard: !_options.EnableVerboseLog));
-        _outputHandler.Ingest(new OutputItem("------ Final Results", discard: !_options.EnableVerboseLog));
-        await _outputHandler.FlushAsync();
+        await ProcessResultsAsync();
         _outputHandler.Ingest(new OutputItem("Done. ", false, messageType: MessageType.DarkSuccess));
         _outputHandler.Ingest(new OutputItem($"Elapsed {sw.Elapsed:hh\\:mm\\:ss}. ", false));
         await Task.CompletedTask;
+    }
+
+    private async Task ProcessResultsAsync()
+    {
+        if (!_duplicateItems.Any())
+        {
+            return;
+        }
+
+        _outputHandler.Ingest(new OutputItem("=== Results ===", messageType: MessageType.Verbose));
+        _outputHandler.Ingest(new OutputItem("\u2713 ", false, messageType: MessageType.DarkSuccess));
+        var resultFile = _options.ExportDuplicatePath ? Path.GetTempFileName() : "";
+
+        foreach (var files in _duplicateItems)
+        {
+            _outputHandler.Ingest(
+                new OutputItem("Duplicate Files: ", false, messageType: MessageType.Warning));
+            _outputHandler.Ingest(new OutputItem(ByteSize.FromBytes(new FileInfo(files.First()).Length).ToString(),
+                true, messageType: MessageType.Success));
+            foreach (var file in files)
+            {
+                _outputHandler.Ingest(new OutputItem("\u2192 ", false, messageType: MessageType.DarkSuccess));
+                _outputHandler.Ingest(new OutputItem(file));
+            }
+
+            if (!string.IsNullOrEmpty(resultFile))
+            {
+                var pathContents = new List<string>(files) {Environment.NewLine};
+                await File.AppendAllLinesAsync(resultFile, pathContents, Encoding.UTF8);
+            }
+
+            _outputHandler.Ingest(new OutputItem());
+        }
+
+        if (!string.IsNullOrEmpty(resultFile))
+        {
+            _outputHandler.Ingest(new OutputItem("All duplicate files path are saved to: ", false));
+            _outputHandler.Ingest(new OutputItem(resultFile, true, messageType: MessageType.DarkSuccess));
+            _outputHandler.Ingest(new OutputItem());
+        }
     }
 
     public async Task<bool> AreFilesEqualAsync(string filePath1, string filePath2)

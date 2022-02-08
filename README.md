@@ -23,24 +23,26 @@ dotnet tool update --global dff
 
 ### Usage
 
-`dff [options]`
+`dff [options] [dir]`
 
 Supported options are:
 
 ```sh
---dir              The target folders(can be specified multiple). Default to current folder.
-
 -r, --recursive    Include sub directories. Default to false.
 
 -v, --verbose      Display detailed logs. Default to false.
 
+-e, --export       Export all duplicate paths. Default to false.
+
 --help             Display this help screen.
 
 --version          Display version information.
+
+dir (pos. 0)       The target folders(can be specified multiple). Default to current folder.
 ```
 
 After the command completed, you can also go to the log file besides the terminal output.
 
 ### License
 
-[MIT](./LICENSE).
+MIT

@@ -38,14 +38,8 @@ public class OutputHandler : IOutputHandler, IAsyncDisposable
             return;
         }
 
-        if (item.DelayToEnd)
-        {
-            _delayedItems.Enqueue(item);
-        }
-        else
-        {
-            _items.Enqueue(item);
-        }
+
+        _items.Enqueue(item);
     }
 
     public async Task FlushAsync()

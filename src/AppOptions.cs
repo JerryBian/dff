@@ -7,4 +7,6 @@ public class AppOptions
     public bool IncludeSubDirs { get; set; }
 
     public bool EnableVerboseLog { get; set; }
+
+    public bool ExportDuplicatePath { get; set; }
 }
