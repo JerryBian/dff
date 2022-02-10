@@ -20,7 +20,7 @@ public class MainService
         _duplicateItems = new List<List<string>>();
         var gcMemoryInfo = GC.GetGCMemoryInfo();
         _maxBytesScan =
-            Convert.ToInt32(Math.Min(gcMemoryInfo.TotalAvailableMemoryBytes / 10, 50 * 1024 * 1024));
+            Convert.ToInt32(Math.Min(gcMemoryInfo.TotalAvailableMemoryBytes / 10, 5 * 1024));
     }
 
     private void Scan(string folder, CancellationToken cancellationToken)
@@ -100,6 +100,7 @@ public class MainService
                         continue;
                     }
 
+                    var fileSizeStr = ByteSize.FromBytes(fileSize).ToString();
                     var duplicateFiles = new List<string> {file1};
                     skippedFiles.Add(file1);
                     _outputHandler.Ingest(new OutputItem(discard: !_options.EnableVerboseLog));
@@ -107,7 +108,7 @@ public class MainService
                         messageType: MessageType.DarkVerbose,
                         discard: !_options.EnableVerboseLog));
                     _outputHandler.Ingest(new OutputItem(
-                        $"Comparing file {file1}({ByteSize.FromBytes(fileSize)}) with:", true,
+                        $"Comparing file {file1}({fileSizeStr}) with:", true,
                         messageType: MessageType.Default,
                         discard: !_options.EnableVerboseLog));
                     foreach (var file2 in groupedFiles)
@@ -180,7 +181,7 @@ public class MainService
         foreach (var files in _duplicateItems)
         {
             _outputHandler.Ingest(
-                new OutputItem("Duplicate Files: ", false, messageType: MessageType.Warning));
+                new OutputItem($"Duplicate Files{_duplicateItems.Count}: ", false, messageType: MessageType.Warning));
             _outputHandler.Ingest(new OutputItem(ByteSize.FromBytes(new FileInfo(files.First()).Length).ToString(),
                 true, messageType: MessageType.Success));
             foreach (var file in files)
