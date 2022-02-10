@@ -15,12 +15,29 @@ internal class Program
         Console.OutputEncoding = Encoding.UTF8;
         Console.InputEncoding = Encoding.UTF8;
 
-        await using var outputHandler = new OutputHandler(Cts.Token);
         await Parser.Default.ParseArguments<InputArgument>(args).WithParsedAsync(async arg =>
         {
+            var outputDir = arg.OutputDir;
+            if (string.IsNullOrEmpty(outputDir))
+            {
+                outputDir = Path.GetTempPath();
+            }
+
             try
             {
-                var appOptions = GetAppOptions(arg);
+                Directory.CreateDirectory(outputDir);
+            }
+            catch
+            {
+                await Console.Error.WriteLineAsync($"Failed to find or create output folder: {outputDir}");
+                return;
+            }
+
+            await using var outputHandler = new OutputHandler(outputDir, Cts.Token);
+            try
+            {
+                var appOptions = GetAppOptions(arg, outputDir);
+
                 var mainService = new MainService(appOptions, outputHandler);
                 await mainService.ExecuteAsync(Cts.Token);
             }
@@ -29,9 +46,9 @@ internal class Program
                 outputHandler.Ingest(new OutputItem(ex.Message, true, true, MessageType.Error)
                     {Exception = ex.ToString()});
             }
-        });
 
-        Cts.Cancel();
+            Cts.Cancel();
+        });
     }
 
     private static void OnExit(object sender, EventArgs args)
@@ -39,14 +56,17 @@ internal class Program
         Cts.Cancel();
     }
 
-    private static AppOptions GetAppOptions(InputArgument o)
+    private static AppOptions GetAppOptions(InputArgument o, string outputDir)
     {
         var options = new AppOptions
         {
             IncludeSubDirs = o.Recursive,
             EnableVerboseLog = o.Verbose,
-            ExportDuplicatePath = o.ExportDuplicatePath
+            ExportDuplicatePath = o.ExportDuplicatePath,
+            OutputDir = outputDir
         };
+
+
         foreach (var dir in o.Dirs)
         {
             if (!Directory.Exists(dir))

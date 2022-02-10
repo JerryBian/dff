@@ -6,9 +6,9 @@ namespace DuplicateFileFinder;
 
 public class MainService
 {
-    private const int MaxBytesScan = 1024 * 2;
     private readonly List<List<string>> _duplicateItems;
     private readonly IDictionary<long, List<string>> _groupedFiles;
+    private readonly int _maxBytesScan;
     private readonly AppOptions _options;
     private readonly IOutputHandler _outputHandler;
 
@@ -18,6 +18,9 @@ public class MainService
         _outputHandler = outputHandler;
         _groupedFiles = new Dictionary<long, List<string>>();
         _duplicateItems = new List<List<string>>();
+        var gcMemoryInfo = GC.GetGCMemoryInfo();
+        _maxBytesScan =
+            Convert.ToInt32(Math.Min(gcMemoryInfo.TotalAvailableMemoryBytes / 10, 50 * 1024 * 1024));
     }
 
     private void Scan(string folder, CancellationToken cancellationToken)
@@ -170,7 +173,9 @@ public class MainService
 
         _outputHandler.Ingest(new OutputItem("=== Results ===", messageType: MessageType.Verbose));
         _outputHandler.Ingest(new OutputItem("\u2713 ", false, messageType: MessageType.DarkSuccess));
-        var resultFile = _options.ExportDuplicatePath ? Path.GetTempFileName() : "";
+        var resultFile = _options.ExportDuplicatePath
+            ? Path.Combine(_options.OutputDir, $"e_{Path.GetRandomFileName()}")
+            : "";
 
         foreach (var files in _duplicateItems)
         {
@@ -216,16 +221,16 @@ public class MainService
             return false;
         }
 
-        var iterations = (int) Math.Ceiling((double) fileInfo1.Length / MaxBytesScan);
+        var iterations = (int) Math.Ceiling((double) fileInfo1.Length / _maxBytesScan);
         await using var f1 = fileInfo1.OpenRead();
         await using var f2 = fileInfo2.OpenRead();
-        var first = new byte[MaxBytesScan];
-        var second = new byte[MaxBytesScan];
+        var first = new byte[_maxBytesScan];
+        var second = new byte[_maxBytesScan];
 
         for (var i = 0; i < iterations; i++)
         {
-            f1.Read(first, 0, MaxBytesScan);
-            f2.Read(second, 0, MaxBytesScan);
+            f1.Read(first, 0, _maxBytesScan);
+            f2.Read(second, 0, _maxBytesScan);
             if (!AreBytesEqual(first, second))
             {
                 return false;

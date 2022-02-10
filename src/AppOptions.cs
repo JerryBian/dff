@@ -9,4 +9,6 @@ public class AppOptions
     public bool EnableVerboseLog { get; set; }
 
     public bool ExportDuplicatePath { get; set; }
+
+    public string OutputDir { get; set; }
 }

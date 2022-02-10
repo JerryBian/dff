@@ -6,18 +6,16 @@ namespace DuplicateFileFinder;
 public class OutputHandler : IOutputHandler, IAsyncDisposable
 {
     private readonly CancellationToken _cancellationToken;
-    private readonly ConcurrentQueue<OutputItem> _delayedItems;
     private readonly ConcurrentQueue<OutputItem> _items;
     private readonly string _logFilePath;
     private readonly Task _task;
 
-    public OutputHandler(CancellationToken cancellationToken)
+    public OutputHandler(string outputDir, CancellationToken cancellationToken)
     {
         _cancellationToken = cancellationToken;
         _items = new ConcurrentQueue<OutputItem>();
-        _delayedItems = new ConcurrentQueue<OutputItem>();
-        _logFilePath = Path.GetTempFileName();
-        _task = Task.Run(async () => await ProcessAsync());
+        _logFilePath = Path.Combine(outputDir, "l_" + Path.GetRandomFileName());
+        _task = Task.Run(async () => await ProcessAsync(), cancellationToken);
     }
 
     public async ValueTask DisposeAsync()
@@ -40,19 +38,6 @@ public class OutputHandler : IOutputHandler, IAsyncDisposable
 
 
         _items.Enqueue(item);
-    }
-
-    public async Task FlushAsync()
-    {
-        while (!_items.IsEmpty)
-        {
-            await Task.Delay(TimeSpan.FromMilliseconds(10), CancellationToken.None);
-        }
-
-        while (_delayedItems.TryDequeue(out var item))
-        {
-            await ProcessItemAsync(item);
-        }
     }
 
     private async Task ProcessAsync()

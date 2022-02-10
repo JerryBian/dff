@@ -28,17 +28,19 @@ dotnet tool update --global dff
 Supported options are:
 
 ```sh
--r, --recursive    Include sub directories. Default to false.
+ -r, --recursive    Include sub directories. Default to false.
 
 -v, --verbose      Display detailed logs. Default to false.
 
 -e, --export       Export all duplicate paths. Default to false.
 
+-o, --output       The folder to stored output files. Default to system Temp folder.
+
 --help             Display this help screen.
 
 --version          Display version information.
 
-dir (pos. 0)       The target folders(can be specified multiple). Default to current folder.
+dir (pos. 1)       The target folders(can be specified multiple). Default to current folder.
 ```
 
 After the command completed, you can also go to the log file besides the terminal output.

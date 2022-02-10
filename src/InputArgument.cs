@@ -13,6 +13,9 @@ public class InputArgument
     [Option('e', "export", HelpText = "Export all duplicate paths. Default to false.")]
     public bool ExportDuplicatePath { get; set; }
 
-    [Value(0, MetaName = "dir", HelpText = "The target folders(can be specified multiple). Default to current folder.")]
+    [Value(1, MetaName = "dir", HelpText = "The target folders(can be specified multiple). Default to current folder.")]
     public IEnumerable<string> Dirs { get; set; }
+
+    [Option('o', "output", HelpText = "The folder to stored output files. Default to system Temp folder.")]
+    public string OutputDir { get; set; }
 }
