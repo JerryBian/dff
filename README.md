@@ -1,3 +1,7 @@
+## This project is marked as Archive, please use [tur](https://github/JerryBian/tur) instead.
+
+---
+
 A tiny cross platform tool to filter out duplicate files within specified directory. 
 
 ### Install
